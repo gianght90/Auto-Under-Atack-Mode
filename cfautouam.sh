@@ -18,16 +18,17 @@ SL_MEDIUM_S="medium"
 SL_HIGH_S="high"
 SL_UNDER_ATTACK_S="under_attack"
 
-#config
+#config <<<<<<<<<
 debug_mode=0 # 1 = true, 0 = false, adds more logging & lets you edit vars to test the script
-install_parent_path="/home"
-cf_email=""
-cf_apikey=""
-cf_zoneid=""
-upper_cpu_limit=35 # 10 = 10% load, 20 = 20% load.  Total load, taking into account # of cores
-lower_cpu_limit=5
-regular_status=$SL_HIGH
-regular_status_s=$SL_HIGH_S
+install_parent_path="/home"  
+cf_email="" 
+cf_apikey="" #apikey
+cf_zoneid="key1 key2 key3"  #mutil site, separated by space
+maincf_zoneid="c8c7c963b4e40676e636deaa330c0b03" #set 1 site to get security level
+upper_cpu_limit=300 # 1core = 100 maxload, 2core = 200 maxload...
+lower_cpu_limit=100 # minload disable_uam
+regular_status=$SL_MEDIUM
+regular_status_s=$SL_MEDIUM_S
 time_limit_before_revert=$((60 * 5)) # 5 minutes by default
 #end config
 
@@ -41,6 +42,8 @@ install() {
 Description=Automate Cloudflare Under Attack Mode
 [Service]
 ExecStart=$install_parent_path/cfautouam/cfautouam.sh
+[Install]
+WantedBy=timers.target
 EOF
 
   cat >$install_parent_path"/cfautouam/cfautouam.timer" <<EOF
@@ -77,39 +80,36 @@ uninstall() {
 }
 
 disable_uam() {
-  curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$cf_zoneid/settings/security_level" \
+for zone_id in $cf_zoneid
+do
+  curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$zone_id/settings/security_level" \
     -H "X-Auth-Email: $cf_email" \
     -H "X-Auth-Key: $cf_apikey" \
     -H "Content-Type: application/json" \
-    --data "{\"value\":\"$regular_status_s\"}" &>/dev/null
-
-  # log time
+    --data "{\"value\":\"$regular_status_s\"}" &>/dev/null 
+done
+# log time
   date +%s >$install_parent_path"/cfautouam/uamdisabledtime"
-
   echo "$(date) - cfautouam - CPU Load: $curr_load - Disabled UAM" >>$install_parent_path"/cfautouam/cfautouam.log"
 }
 
 enable_uam() {
-  curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$cf_zoneid/settings/security_level" \
+for zone_id in $cf_zoneid
+do
+	curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$zone_id/settings/security_level" \
     -H "X-Auth-Email: $cf_email" \
     -H "X-Auth-Key: $cf_apikey" \
     -H "Content-Type: application/json" \
-    --data '{"value":"under_attack"}' &>/dev/null
-
-  # log time
+    --data '{"value":"under_attack"}' &>/dev/null 
+done
+# log time
   date +%s >$install_parent_path"/cfautouam/uamenabledtime"
-
-  echo "$(date) - cfautouam - CPU Load: $curr_load - Enabled UAM" >>$install_parent_path"/cfautouam/cfautouam.log"
+  echo "$(date) - cfautouam - CPU Load: $curr_load - Enabled UAM" >>$install_parent_path"/cfautouam/cfautouam.log"  
 }
 
-get_current_load() {
-  currload=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-  currload=$(echo "$currload/1" | bc)
-  return $currload
-}
 
 get_security_level() {
-  curl -X GET "https://api.cloudflare.com/client/v4/zones/$cf_zoneid/settings/security_level" \
+  curl -X GET "https://api.cloudflare.com/client/v4/zones/$maincf_zoneid/settings/security_level" \
     -H "X-Auth-Email: $cf_email" \
     -H "X-Auth-Key: $cf_apikey" \
     -H "Content-Type: application/json" 2>/dev/null |
@@ -146,9 +146,11 @@ main() {
   # Get current protection level & load
   get_security_level
   curr_security_level=$?
-  get_current_load
-  curr_load=$?
-
+  #G current load
+  currload=$(cut -d ' ' -f1 /proc/loadavg)
+  currload=$(echo "$currload*100" | bc)
+  curr_load=${currload%.*}
+  
   if [ $debug_mode == 1 ]; then
     debug_mode=1 # random inconsequential line needed to hide a dumb shellcheck error
 	#edit vars here to debug the script
@@ -157,12 +159,10 @@ main() {
   fi
 
   # If UAM was recently enabled
-
   if [[ $curr_security_level == "$SL_UNDER_ATTACK" ]]; then
     uam_enabled_time=$(<$install_parent_path"/cfautouam/uamenabledtime")
     currenttime=$(date +%s)
     timediff=$((currenttime - uam_enabled_time))
-
     # If time limit has not passed do nothing
     if [[ $timediff -lt $time_limit_before_revert ]]; then
         if [ $debug_mode == 1 ]; then
