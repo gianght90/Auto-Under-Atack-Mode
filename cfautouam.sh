@@ -21,8 +21,8 @@ SL_UNDER_ATTACK_S="under_attack"
 #config <<<<<<<<<
 debug_mode=0 # 1 = true, 0 = false, adds more logging & lets you edit vars to test the script
 install_parent_path="/home"  
-cf_email="" 
-cf_apikey="" #apikey
+cf_email=""
+cf_apikey=""
 cf_zoneid="key1 key2 key3"  #mutil site, separated by space
 maincf_zoneid="c8c7c963b4e40676e636deaa330c0b03" #set 1 site to get security level
 upper_cpu_limit=300 # 1core = 100 maxload, 2core = 200 maxload...
