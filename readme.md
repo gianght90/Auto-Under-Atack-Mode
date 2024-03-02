@@ -1,7 +1,4 @@
-# cfautouam - CloudFlare Under Attack Mode Automation
-
-[![](https://img.youtube.com/vi/gVRgeELT2JU/0.jpg)](https://youtu.be/gVRgeELT2JU)
-
+#CloudFlare Under Attack Mode Automation
 ### What does it do
 This is a bash script designed to automate the process of enabling and disabling Cloudflare's Under Attack Mode based on CPU load percentage using the Cloudflare API.  This can be a lifesaver when you're dealing with DDoS attacks or other high-load situations.
 
